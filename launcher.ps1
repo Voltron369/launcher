@@ -168,77 +168,144 @@ function Show-SystemMonitor {
     $titleLabel.TextAlign = "MiddleCenter"
     $form.Controls.Add($titleLabel)
     
-    # Function to refresh status
-    function Refresh-Status {
-        $form.SuspendLayout()
-        # Clear existing panels
-        $panelsToRemove = @()
-        foreach ($control in $form.Controls) {
-            if ($control -is [System.Windows.Forms.Panel]) {
-                $panelsToRemove += $control
-            }
-        }
-        foreach ($panel in $panelsToRemove) {
-            $form.Controls.Remove($panel)
-        }
+    # Store panel references for smooth updates
+    $script:statusPanels = @{}
+    $script:summaryPanel = $null
+    $script:initialSetup = $true
+    
+    # Function to update panel status smoothly
+    function Update-StatusPanel {
+        param($Panel, $IsRunning)
         
+        $statusLabel = $Panel.Controls[0]  # Status indicator
+        $statusText = $Panel.Controls[2]   # Status text
+        
+        # Update with smooth transition
+        $statusLabel.Text = if ($IsRunning) { "●" } else { "●" }
+        $statusLabel.ForeColor = if ($IsRunning) { $COLOR_GREEN } else { $COLOR_RED }
+        
+        $statusText.Text = if ($IsRunning) { "RUNNING" } else { "STOPPED" }
+        $statusText.ForeColor = if ($IsRunning) { $COLOR_GREEN } else { $COLOR_RED }
+        
+        # Force refresh
+        $Panel.Refresh()
+    }
+    
+    # Function to refresh status smoothly
+    function Refresh-Status {
+
         $yPosition = 50
         
         # Check USB Joystick
         $joystickConnected = Check-USBJoystick -DeviceName $USB_JOYSTICK_NAME -VidPid $USB_JOYSTICK_VID_PID
-        $joystickPanel = Create-StatusPanel -Title "USB Joystick ($USB_JOYSTICK_NAME)" -IsRunning $joystickConnected -Y $yPosition
-        $form.Controls.Add($joystickPanel)
-        $yPosition += 40
         
         # Check all required processes
         $processStatus = Check-ProcessStatus -ProcessNames $REQUIRED_PROCESSES
         $allProcessesRunning = $true
         
+        # Check if all processes are running
         foreach ($processName in $REQUIRED_PROCESSES) {
-            $isRunning = $processStatus[$processName]
-            if (!$isRunning) { $allProcessesRunning = $false }
+            if (!$processStatus[$processName]) { 
+                $allProcessesRunning = $false 
+                break
+            }
+        }
+
+        if ($script:initialSetup) {
+            # Initial setup - create all panels
+            $form.SuspendLayout()
             
-            $processPanel = Create-StatusPanel -Title $processName -IsRunning $isRunning -Y $yPosition
-            $form.Controls.Add($processPanel)
+            # Create joystick panel
+            $joystickPanel = Create-StatusPanel -Title "USB Joystick ($USB_JOYSTICK_NAME)" -IsRunning $joystickConnected -Y $yPosition
+            $form.Controls.Add($joystickPanel)
+            $script:statusPanels["joystick"] = $joystickPanel
             $yPosition += 40
+            
+            # Create process panels
+            foreach ($processName in $REQUIRED_PROCESSES) {
+                $isRunning = $processStatus[$processName]
+                
+                # Clean display name for PowerShell scripts
+                $displayName = if ($processName.StartsWith("powershell:")) {
+                    "PowerShell: " + $processName.Substring(11)
+                } else {
+                    $processName
+                }
+
+                # Clean display name for PowerShell scripts
+                $displayName = if ($processName.StartsWith("cmd:")) {
+                    "Cmd: " + $processName.Substring(4)
+                } else {
+                    $processName
+                }
+
+                $processPanel = Create-StatusPanel -Title $displayName -IsRunning $isRunning -Y $yPosition
+                $form.Controls.Add($processPanel)
+                $script:statusPanels[$processName] = $processPanel
+                $yPosition += 40
+            }
+            
+            # Create summary panel
+            $summaryY = $yPosition + 10
+            $overallStatus = $joystickConnected -and $allProcessesRunning
+            
+            $script:summaryPanel = New-Object System.Windows.Forms.Panel
+            $script:summaryPanel.Size = New-Object System.Drawing.Size(580, 40)
+            $script:summaryPanel.Location = New-Object System.Drawing.Point(10, $summaryY)
+            $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
+            $script:summaryPanel.BorderStyle = "FixedSingle"
+            
+            $summaryLabel = New-Object System.Windows.Forms.Label
+            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "⚠️ SYSTEM NOT READY ⚠️" }
+            $summaryLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+            $summaryLabel.ForeColor = $COLOR_TEXT
+            $summaryLabel.Dock = "Fill"
+            $summaryLabel.TextAlign = "MiddleCenter"
+            
+            $script:summaryPanel.Controls.Add($summaryLabel)
+            $form.Controls.Add($script:summaryPanel)
+            
+            # Update form height
+            $form.Height = $summaryY + 80
+            $form.ResumeLayout()
+            $script:initialSetup = $false
+        }
+        else {
+            # Smooth update - just change existing panels
+
+            # Update joystick status
+            Update-StatusPanel -Panel $script:statusPanels["joystick"] -IsRunning $joystickConnected
+            
+            # Update process statuses
+            foreach ($processName in $REQUIRED_PROCESSES) {
+                $isRunning = $processStatus[$processName]
+                Update-StatusPanel -Panel $script:statusPanels[$processName] -IsRunning $isRunning
+            }
+            
+            # Update summary panel
+            $overallStatus = $joystickConnected -and $allProcessesRunning
+            $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
+            $summaryLabel = $script:summaryPanel.Controls[0]
+            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "⚠️ SYSTEM NOT READY ⚠️" }
+            $script:summaryPanel.Refresh()
         }
         
-        # Overall status summary
-        $summaryY = $yPosition + 10
-        $overallStatus = $joystickConnected -and $allProcessesRunning
-        
         # Close form if everything is ready
+        $overallStatus = $joystickConnected -and $allProcessesRunning
         if ($overallStatus) {
-            $timer.Stop()
             # Minimize all windows
             $shell = New-Object -ComObject Shell.Application
             $shell.MinimizeAll()
 
             # Launch your application
             Start-Process "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"  # Replace with your application
-            $form.Close()
+
+            if ($timer) {
+                $timer.Stop()
+                $form.Close()
+            }
             return
         }
-        
-        $summaryPanel = New-Object System.Windows.Forms.Panel
-        $summaryPanel.Size = New-Object System.Drawing.Size(580, 40)
-        $summaryPanel.Location = New-Object System.Drawing.Point(10, $summaryY)
-        $summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
-        $summaryPanel.BorderStyle = "FixedSingle"
-        
-        $summaryLabel = New-Object System.Windows.Forms.Label
-        $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "⚠️ SYSTEM NOT READY ⚠️" }
-        $summaryLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-        $summaryLabel.ForeColor = $COLOR_TEXT
-        $summaryLabel.Dock = "Fill"
-        $summaryLabel.TextAlign = "MiddleCenter"
-        
-        $summaryPanel.Controls.Add($summaryLabel)
-        $form.Controls.Add($summaryPanel)
-        
-        # Update form height
-        $form.Height = $summaryY + 80
-        $form.ResumeLayout()
     }
     
     # Initial status check
@@ -259,8 +326,8 @@ function Show-SystemMonitor {
     $refreshButton.ForeColor = $COLOR_TEXT
     $refreshButton.FlatStyle = "Flat"
     $refreshButton.Add_Click({ Refresh-Status })
-    #$form.Controls.Add($refreshButton)
-    
+    $form.Controls.Add($refreshButton)
+
     # Show the form
     $form.Add_FormClosed({ $timer.Stop() })
     $form.ShowDialog() | Out-Null
