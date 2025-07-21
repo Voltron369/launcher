@@ -332,7 +332,7 @@ function Show-SystemMonitor {
             $script:summaryPanel.BorderStyle = "FixedSingle"
             
             $summaryLabel = New-Object System.Windows.Forms.Label
-            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "⚠️ SYSTEM NOT READY ⚠️" }
+            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "SYSTEM NOT READY" }
             $summaryLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
             $summaryLabel.ForeColor = $COLOR_TEXT
             $summaryLabel.Dock = "Fill"
@@ -362,7 +362,7 @@ function Show-SystemMonitor {
             $overallStatus = $joystickConnected -and $allProcessesRunning
             $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
             $summaryLabel = $script:summaryPanel.Controls[0]
-            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "⚠️ SYSTEM NOT READY ⚠️" }
+            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "SYSTEM NOT READY" }
             $script:summaryPanel.Refresh()
         }
         
