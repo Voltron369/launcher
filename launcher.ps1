@@ -461,7 +461,7 @@ Show-SystemMonitor
 # CONFIGURATION HELP:
 # 
 # To find your specific USB device names and VID/PID, run this command:
-# usb_detect.ps1
+# .\usb_detect.ps1
 # When you connect a device, it will show its VID and PID.
 #
 # To find running processes, use:

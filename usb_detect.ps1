@@ -1,6 +1,13 @@
 # USB Device Monitor - Uses polling to detect device changes
 # Monitors for USB devices being added by comparing device lists
 
+
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    $CommandLine = "-File `"$($MyInvocation.MyCommand.Path)`" $($MyInvocation.UnboundArguments)"
+    Start-Process -FilePath PowerShell.exe -Verb RunAs -ArgumentList $CommandLine
+    exit
+}
+
 Write-Host "USB Device Monitor Started (Polling Method)" -ForegroundColor Green
 Write-Host "Monitoring for USB device additions..." -ForegroundColor Yellow
 Write-Host "Press Ctrl+C to stop monitoring" -ForegroundColor Cyan
