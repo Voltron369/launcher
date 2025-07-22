@@ -1,13 +1,19 @@
 ﻿# Flight Simulator System Monitor
-# Checks USB joystick and required applications status
-
-# Fix Unicode display in PowerShell
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+# Checks USB devices and required applications status
 
 # CONFIGURATION - Update these with your specific details
-$USB_JOYSTICK_NAME = "Moza AB9 Joysick"  # Change to your joystick name
-$USB_JOYSTICK_VID_PID = "VID_346E&PID_1000"  # Optional: VID_1234&PID_5678 format
+# Dictionary of device display names to VID/PID (VID_XXXX&PID_YYYY format, or "" if not used)
+$USB_DEVICES = @{
+    "Moza AB9 Joystick" = "VID_346E&PID_1000"
+    "Tablet" = "VID_256C&PID_0064"
+    "Pimax VR Headset" = "VID_04D8&PID_E7EB"
+    "Winwing PTO 2" = "VID_4098&PID_BF05"
+    "WinWing Orion 2 Throttle" = "VID_4098&PID_BE62"
+    "HS-2100" = ""  # has same VID/PID as  QS-BT1 so use name.
+    "QS-BT1" = ""
+    "Thrustmaster Rudder" = "VID_044F&PID_B679"
+    "Buttkicker Pro" = "VID_33A1&PID_52DA"
+}
 
 # List of required applications with their start commands
 # Format: ProcessName = "Path\to\executable.exe" or "command"
@@ -23,6 +29,13 @@ $REQUIRED_PROCESSES = @{
     "PlatformManager" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Platform Manager"
 }
 
+$launchProcess = "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"  # Replace with your application
+
+
+# Fix Unicode display in PowerShell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -34,12 +47,10 @@ $COLOR_BACKGROUND = [System.Drawing.Color]::FromArgb(37, 37, 38)
 $COLOR_TEXT = [System.Drawing.Color]::White
 $COLOR_PANEL = [System.Drawing.Color]::FromArgb(45, 45, 48)
 
-function Check-USBJoystick {
-    param([string]$DeviceName, [string]$VidPid = "")
+function Check-USBDevice {
+    param([string]$DeviceName, [string]$VidPid = "", $usbDevices, $pnpDevices)
     
     try {
-        $usbDevices = Get-WmiObject -Class Win32_USBHub | Where-Object { $_.Name -ne $null }
-        $pnpDevices = Get-WmiObject -Class Win32_PnPEntity | Where-Object { $_.DeviceID -like "*USB*" }
         
         $deviceFound = $false
         
@@ -59,10 +70,24 @@ function Check-USBJoystick {
     }
 }
 
+function Check-AllDevices {
+    param([hashtable]$DeviceConfig)
+    
+    $usbDevices = Get-WmiObject -Class Win32_USBHub | Where-Object { $_.Name -ne $null }
+    $pnpDevices = Get-WmiObject -Class Win32_PnPEntity | Where-Object { $_.DeviceID -like "*USB*" }
+    $deviceStatus = @{}
+    foreach ($deviceName in $DeviceConfig.Keys) {
+        $vidPid = $DeviceConfig[$deviceName]
+        $deviceStatus[$deviceName] = Check-USBDevice -DeviceName $deviceName -VidPid $vidPid -usbDevices $usbDevices -pnpDevices $pnpDevices
+    }
+    return $deviceStatus
+}
+
 function Check-ProcessStatus {
     param([hashtable]$ProcessConfig)
     
     $status = @{}
+    $processes = Get-WmiObject -Class Win32_Process
     foreach ($processName in $ProcessConfig.Keys) {
         # Check if it's a PowerShell script with specific arguments
         if ($processName.StartsWith("powershell:") -or $processName.StartsWith("cmd:")) {
@@ -74,7 +99,7 @@ function Check-ProcessStatus {
             }
             
             # Get all PowerShell processes and check their command lines
-            $psProcesses = Get-WmiObject -Class Win32_Process | Where-Object { 
+            $psProcesses = $processes | Where-Object { 
                 $_.Name -eq "powershell.exe" -or $_.Name -eq "pwsh.exe" -or $_.Name -eq "cmd.exe"
             }
             
@@ -98,7 +123,9 @@ function Check-ProcessStatus {
         }
         else {
             # Regular process check
-            $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+            $process = $processes | Where-Object { 
+                $_.Name -like "*$processName*"
+            }
             $status[$processName] = [bool]$process
         }
     }
@@ -167,7 +194,7 @@ function Create-StatusPanel {
     
     $panel.Controls.AddRange(@($statusLabel, $titleLabel, $statusText))
     
-    # Add Start button if this is a process panel (not joystick)
+    # Add Start button if this is a process panel (not device)
     if ($ProcessName -and $StartCommand) {
         $startButton = New-Object System.Windows.Forms.Button
         $startButton.Text = "Start"
@@ -276,8 +303,17 @@ function Show-SystemMonitor {
     function Refresh-Status {
         $yPosition = 50
         
-        # Check USB Joystick
-        $joystickConnected = Check-USBJoystick -DeviceName $USB_JOYSTICK_NAME -VidPid $USB_JOYSTICK_VID_PID
+        # Check all USB Devices
+        $deviceStatus = Check-AllDevices -DeviceConfig $USB_DEVICES
+        $allDevicesConnected = $true
+        
+        # Check if all devices are connected
+        foreach ($deviceName in $USB_DEVICES.Keys) {
+            if (!$deviceStatus[$deviceName]) { 
+                $allDevicesConnected = $false 
+                break
+            }
+        }
         
         # Check all required processes
         $processStatus = Check-ProcessStatus -ProcessConfig $REQUIRED_PROCESSES
@@ -295,11 +331,14 @@ function Show-SystemMonitor {
             # Initial setup - create all panels
             $form.SuspendLayout()
             
-            # Create joystick panel (no start button for joystick)
-            $joystickPanel = Create-StatusPanel -Title "USB Joystick ($USB_JOYSTICK_NAME)" -IsRunning $joystickConnected -Y $yPosition
-            $form.Controls.Add($joystickPanel)
-            $script:statusPanels["joystick"] = $joystickPanel
-            $yPosition += 40
+            # Create device panels (no start button for devices)
+            foreach ($deviceName in $USB_DEVICES.Keys) {
+                $isConnected = $deviceStatus[$deviceName]
+                $devicePanel = Create-StatusPanel -Title "USB Device ($deviceName)" -IsRunning $isConnected -Y $yPosition
+                $form.Controls.Add($devicePanel)
+                $script:statusPanels["device_$deviceName"] = $devicePanel
+                $yPosition += 40
+            }
             
             # Create process panels with start buttons
             foreach ($processName in $REQUIRED_PROCESSES.Keys) {
@@ -323,7 +362,7 @@ function Show-SystemMonitor {
             
             # Create summary panel
             $summaryY = $yPosition + 10
-            $overallStatus = $joystickConnected -and $allProcessesRunning
+            $overallStatus = $allDevicesConnected -and $allProcessesRunning
             
             $script:summaryPanel = New-Object System.Windows.Forms.Panel
             $script:summaryPanel.Size = New-Object System.Drawing.Size(580, 40)
@@ -349,8 +388,11 @@ function Show-SystemMonitor {
         else {
             # Smooth update - just change existing panels
 
-            # Update joystick status
-            Update-StatusPanel -Panel $script:statusPanels["joystick"] -IsRunning $joystickConnected
+            # Update device statuses
+            foreach ($deviceName in $USB_DEVICES.Keys) {
+                $isConnected = $deviceStatus[$deviceName]
+                Update-StatusPanel -Panel $script:statusPanels["device_$deviceName"] -IsRunning $isConnected
+            }
             
             # Update process statuses
             foreach ($processName in $REQUIRED_PROCESSES.Keys) {
@@ -359,7 +401,7 @@ function Show-SystemMonitor {
             }
             
             # Update summary panel
-            $overallStatus = $joystickConnected -and $allProcessesRunning
+            $overallStatus = $allDevicesConnected -and $allProcessesRunning
             $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
             $summaryLabel = $script:summaryPanel.Controls[0]
             $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "SYSTEM NOT READY" }
@@ -367,14 +409,14 @@ function Show-SystemMonitor {
         }
         
         # Close form if everything is ready
-        $overallStatus = $joystickConnected -and $allProcessesRunning
+        $overallStatus = $allDevicesConnected -and $allProcessesRunning
         if ($overallStatus) {
             # Minimize all windows
             $shell = New-Object -ComObject Shell.Application
             $shell.MinimizeAll()
 
             # Launch your application
-            Start-Process "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"  # Replace with your application
+            Start-Process $launchProcess
 
             if ($timer) {
                 $timer.Stop()
@@ -418,11 +460,15 @@ Show-SystemMonitor
 
 # CONFIGURATION HELP:
 # 
-# To find your specific USB joystick name, run this command:
-# Get-WmiObject -Class Win32_PnPEntity | Where-Object { $_.Name -like "*joystick*" -or $_.Name -like "*game*" } | Select Name, DeviceID
+# To find your specific USB device names and VID/PID, run this command:
+# usb_detect.ps1
+# When you connect a device, it will show its VID and PID.
 #
 # To find running processes, use:
 # Get-Process | Where-Object { $_.ProcessName -like "*flight*" -or $_.ProcessName -like "*sim*" } | Select ProcessName
+#
+# Update the $USB_DEVICES hashtable with your device names and VID/PID:
+# "Display Name" = "VID_XXXX&PID_YYYY" (or "" if you only want to search by name)
 #
 # Update the $REQUIRED_PROCESSES hashtable with the correct paths for your system:
 # - For regular executables: "ProcessName" = "C:\Full\Path\To\Program.exe"
