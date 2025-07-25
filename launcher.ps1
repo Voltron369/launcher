@@ -1,4 +1,18 @@
-﻿# Flight Simulator System Monitor
+﻿<#
+.SYNOPSIS
+Flight Simulator System Monitor
+Checks for required USB devices and running applications. Launches a process automatically when ready, or manually via an override button.
+
+.PARAMETER LaunchCommand
+An optional string that specifies the process to launch, including any arguments.
+Example: -LaunchCommand '"C:\Games\MSFS\msfs.exe" -vr'
+#>
+param(
+    [string]$ExecutablePath,
+    [string[]]$Arguments
+)
+
+# Flight Simulator System Monitor
 # Checks USB devices and required applications status
 
 # Load configuration from PSD1 file
@@ -12,8 +26,6 @@ $config = Import-PowerShellDataFile -Path $configPath
 # Extract configuration variables
 $USB_DEVICES = $config.USB_DEVICES
 $REQUIRED_PROCESSES = $config.REQUIRED_PROCESSES
-$launchProcess = $config.LAUNCH_PROCESS
-
 
 # Fix Unicode display in PowerShell
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -115,24 +127,6 @@ function Check-ProcessStatus {
     return $status
 }
 
-function Start-ConfiguredProcess {
-    param([string]$ProcessName, [string]$StartCommand)
-    
-    try {
-        Write-Host "Starting $ProcessName with command: $StartCommand"
-        
-        Start-Process $StartCommand
-        
-        Write-Host "Started $ProcessName successfully"
-        return $true
-    }
-    catch {
-        Write-Host "Failed to start $ProcessName : $($_.Exception.Message)"
-        [System.Windows.Forms.MessageBox]::Show("Failed to start $ProcessName`n`nError: $($_.Exception.Message)`n`nPlease check the path in the configuration.", "Start Process Error", "OK", "Warning")
-        return $false
-    }
-}
-
 function Create-StatusPanel {
     param(
         [string]$Title,
@@ -190,7 +184,6 @@ function Create-StatusPanel {
         $startButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
         
         # Add click event to start the process
-        # Capture variables by value and create the scriptblock inline to avoid scope issues
         $capturedProcessName = $ProcessName
         $capturedStartCommand = $StartCommand
         
@@ -198,23 +191,12 @@ function Create-StatusPanel {
             try {
                 Write-Host "Starting $capturedProcessName with command: $capturedStartCommand"
                 
-                if ($capturedStartCommand.StartsWith("cmd /c ")) {
-                    # Handle command line scripts
-                    $cmdArgs = $capturedStartCommand.Substring(7)  # Remove "cmd /c "
-                    Start-Process "cmd" -ArgumentList "/c", $cmdArgs -WindowStyle Hidden
-                }
-                elseif (Test-Path $capturedStartCommand) {
-                    # Handle executable files
-                    Start-Process $capturedStartCommand
-                }
-                else {
-                    # Try to start as-is (might be in PATH)
-                    Start-Process $capturedStartCommand
-                }
-                
+                # Use Invoke-Expression to handle commands with arguments and different types
+                # Invoke-Expression -Command "Start-Process $capturedStartCommand"
+                Start-Process -FilePath $capturedStartCommand
+
                 Write-Host "Started $capturedProcessName successfully"
                 
-                # Wait a moment then refresh status
                 Start-Sleep -Seconds 2
                 if ($script:RefreshFunction) {
                     & $script:RefreshFunction
@@ -222,7 +204,7 @@ function Create-StatusPanel {
             }
             catch {
                 Write-Host "Failed to start $capturedProcessName : $($_.Exception.Message)"
-                [System.Windows.Forms.MessageBox]::Show("Failed to start $capturedProcessName`n`nError: $($_.Exception.Message)`n`nPlease check the path in the configuration.", "Start Process Error", "OK", "Warning")
+                [System.Windows.Forms.MessageBox]::Show("Failed to start $capturedProcessName`n`n$capturedStartCommand`n`nError: $($_.Exception.Message)`n`nPlease check the path in the configuration.", "Start Process Error", "OK", "Warning")
             }
         }.GetNewClosure())
         
@@ -262,154 +244,158 @@ function Show-SystemMonitor {
     function Update-StatusPanel {
         param($Panel, $IsRunning)
         
-        $statusLabel = $Panel.Controls[0]  # Status indicator
-        $statusText = $Panel.Controls[2]   # Status text
+        $statusLabel = $Panel.Controls[0]
+        $statusText = $Panel.Controls[2]
         
-        # Update with smooth transition
-        $statusLabel.Text = if ($IsRunning) { "●" } else { "●" }
+        $statusLabel.Text = "●"
         $statusLabel.ForeColor = if ($IsRunning) { $COLOR_GREEN } else { $COLOR_RED }
         
         $statusText.Text = if ($IsRunning) { "RUNNING" } else { "STOPPED" }
         $statusText.ForeColor = if ($IsRunning) { $COLOR_GREEN } else { $COLOR_RED }
         
-        # Update Start button if it exists
         if ($Panel.Controls.Count -gt 3) {
             $startButton = $Panel.Controls[3]
-            $startButton.Enabled = !$IsRunning  # Enable when stopped, disable when running
+            $startButton.Enabled = !$IsRunning
         }
         
-        # Force refresh
         $Panel.Refresh()
     }
     
+    # --- CORRECTED: Shared Launch Function to handle spaces in path ---
+    function Invoke-LaunchAndClose {
+        param(
+            [string]$commandToRun,
+            [string[]]$arguments
+ )
+        
+        if ([string]::IsNullOrWhiteSpace($commandToRun)) { return }
+
+        $timer.Stop()
+        try {
+            $executable = $commandToRun
+
+
+            
+            Write-Host "Minimizing windows and launching..."
+            Write-Host "Executable: $executable"
+            Write-Host "Arguments: $arguments"
+
+            $shell = New-Object -ComObject Shell.Application
+            $shell.MinimizeAll()
+            
+            if ($Arguments -and $Arguments.Count -gt 0) {
+                Start-Process -FilePath $ExecutablePath -ArgumentList $Arguments
+            } else {
+                Start-Process -FilePath $ExecutablePath
+            }
+            
+
+            $form.Close()
+        }
+        catch {
+            [System.Windows.Forms.MessageBox]::Show("Failed to launch application.`n`nCommand: $commandToRun`n`nError: $($_.Exception.Message)", "Launch Error", "OK", "Error")
+            $timer.Start()
+        }
+    }
+
     # Function to refresh status smoothly
     function Refresh-Status {
-        $yPosition = 50
-        
-        # Check all USB Devices
+        # Check devices and processes
         $deviceStatus = Check-AllDevices -DeviceConfig $USB_DEVICES
-        $allDevicesConnected = $true
+        $allDevicesConnected = ($deviceStatus.Values | Where-Object { $_ -eq $false }).Count -eq 0
         
-        # Check if all devices are connected
-        foreach ($deviceName in $USB_DEVICES.Keys) {
-            if (!$deviceStatus[$deviceName]) { 
-                $allDevicesConnected = $false 
-                break
-            }
-        }
-        
-        # Check all required processes
         $processStatus = Check-ProcessStatus -ProcessConfig $REQUIRED_PROCESSES
-        $allProcessesRunning = $true
+        $allProcessesRunning = ($processStatus.Values | Where-Object { $_ -eq $false }).Count -eq 0
         
-        # Check if all processes are running
-        foreach ($processName in $REQUIRED_PROCESSES.Keys) {
-            if (!$processStatus[$processName]) { 
-                $allProcessesRunning = $false 
-                break
-            }
-        }
+        $overallStatus = $allDevicesConnected -and $allProcessesRunning
 
         if ($script:initialSetup) {
             # Initial setup - create all panels
             $form.SuspendLayout()
             
-            # Create device panels (no start button for devices)
+            $yPosition = 50
+            # Create device and process panels
             foreach ($deviceName in $USB_DEVICES.Keys) {
-                $isConnected = $deviceStatus[$deviceName]
-                $devicePanel = Create-StatusPanel -Title "USB Device ($deviceName)" -IsRunning $isConnected -Y $yPosition
-                $form.Controls.Add($devicePanel)
-                $script:statusPanels["device_$deviceName"] = $devicePanel
+                $panel = Create-StatusPanel -Title "USB Device ($deviceName)" -IsRunning $deviceStatus[$deviceName] -Y $yPosition
+                $form.Controls.Add($panel)
+                $script:statusPanels["device_$deviceName"] = $panel
                 $yPosition += 40
             }
-            
-            # Create process panels with start buttons
             foreach ($processName in $REQUIRED_PROCESSES.Keys) {
-                $isRunning = $processStatus[$processName]
-                $startCommand = $REQUIRED_PROCESSES[$processName]
-                
-                # Clean display name for special processes
                 $displayName = $processName
-                if ($processName.StartsWith("powershell:")) {
-                    $displayName = "PowerShell: " + $processName.Substring(11)
-                }
-                elseif ($processName.StartsWith("cmd:")) {
-                    $displayName = "Cmd: " + $processName.Substring(4)
-                }
-
-                $processPanel = Create-StatusPanel -Title $displayName -IsRunning $isRunning -Y $yPosition -ProcessName $processName -StartCommand $startCommand
-                $form.Controls.Add($processPanel)
-                $script:statusPanels[$processName] = $processPanel
+                if ($processName.StartsWith("powershell:")) { $displayName = "PowerShell: " + $processName.Substring(11) }
+                elseif ($processName.StartsWith("cmd:")) { $displayName = "Cmd: " + $processName.Substring(4) }
+                $panel = Create-StatusPanel -Title $displayName -IsRunning $processStatus[$processName] -Y $yPosition -ProcessName $processName -StartCommand $REQUIRED_PROCESSES[$processName]
+                $form.Controls.Add($panel)
+                $script:statusPanels[$processName] = $panel
                 $yPosition += 40
             }
             
             # Create summary panel
             $summaryY = $yPosition + 10
-            $overallStatus = $allDevicesConnected -and $allProcessesRunning
-            
             $script:summaryPanel = New-Object System.Windows.Forms.Panel
             $script:summaryPanel.Size = New-Object System.Drawing.Size(580, 40)
             $script:summaryPanel.Location = New-Object System.Drawing.Point(10, $summaryY)
             $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
             $script:summaryPanel.BorderStyle = "FixedSingle"
-            
             $summaryLabel = New-Object System.Windows.Forms.Label
-            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "SYSTEM NOT READY" }
+            $summaryLabel.Text = if ($overallStatus) { "READY FOR FLIGHT" } else { "SYSTEM NOT READY" }
             $summaryLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
             $summaryLabel.ForeColor = $COLOR_TEXT
             $summaryLabel.Dock = "Fill"
             $summaryLabel.TextAlign = "MiddleCenter"
-            
             $script:summaryPanel.Controls.Add($summaryLabel)
             $form.Controls.Add($script:summaryPanel)
+
+            # Create Manual Override Launch Button
+            if (-not [string]::IsNullOrWhiteSpace($ExecutablePath)) {
+
+                $launchButtonY = $summaryY + 50
+                $launchButton = New-Object System.Windows.Forms.Button
+                $launchButton.Size = New-Object System.Drawing.Size(580, 40)
+                $launchButton.Location = New-Object System.Drawing.Point(10, $launchButtonY)
+                $launchButton.BackColor = $COLOR_BLUE
+                $launchButton.ForeColor = $COLOR_TEXT
+                $launchButton.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+                $launchButton.FlatStyle = "Flat"
             
-            # Update form height
-            $form.Height = $summaryY + 120
+                $launchButton.Text = "Launch Now: $(Split-Path $ExecutablePath -Leaf)"
+                $launchButton.Enabled = $true
+
+                $launchButton.Add_Click({ Invoke-LaunchAndClose -commandToRun $ExecutablePath -arguments $Arguments })
+                $form.Controls.Add($launchButton)
+                $form.Height = $launchButtonY + 90
+            } else {
+                $form.Height = $summaryY + 90
+            }
+
+
+            
             $form.ResumeLayout()
             $script:initialSetup = $false
         }
         else {
-            # Smooth update - just change existing panels
-
-            # Update device statuses
+            # Smooth update
             foreach ($deviceName in $USB_DEVICES.Keys) {
-                $isConnected = $deviceStatus[$deviceName]
-                Update-StatusPanel -Panel $script:statusPanels["device_$deviceName"] -IsRunning $isConnected
+                Update-StatusPanel -Panel $script:statusPanels["device_$deviceName"] -IsRunning $deviceStatus[$deviceName]
             }
-            
-            # Update process statuses
             foreach ($processName in $REQUIRED_PROCESSES.Keys) {
-                $isRunning = $processStatus[$processName]
-                Update-StatusPanel -Panel $script:statusPanels[$processName] -IsRunning $isRunning
+                Update-StatusPanel -Panel $script:statusPanels[$processName] -IsRunning $processStatus[$processName]
             }
             
             # Update summary panel
-            $overallStatus = $allDevicesConnected -and $allProcessesRunning
             $script:summaryPanel.BackColor = if ($overallStatus) { $COLOR_GREEN } else { $COLOR_RED }
             $summaryLabel = $script:summaryPanel.Controls[0]
-            $summaryLabel.Text = if ($overallStatus) { "✈️ READY FOR FLIGHT ✈️" } else { "SYSTEM NOT READY" }
+            $summaryLabel.Text = if ($overallStatus) { "READY FOR FLIGHT" } else { "SYSTEM NOT READY" }
             $script:summaryPanel.Refresh()
         }
         
-        # Close form if everything is ready
-        $overallStatus = $allDevicesConnected -and $allProcessesRunning
+        # Automatic Launch on Ready
         if ($overallStatus) {
-            # Minimize all windows
-            $shell = New-Object -ComObject Shell.Application
-            $shell.MinimizeAll()
-
-            # Launch your application
-            Start-Process $launchProcess
-
-            if ($timer) {
-                $timer.Stop()
-                $form.Close()
-            }
-            return
+            Invoke-LaunchAndClose -commandToRun $ExecutablePath -arguments $Arguments
         }
     }
     
-    # Store refresh function reference for start buttons
     $script:RefreshFunction = ${function:Refresh-Status}
     
     # Initial status check
@@ -417,22 +403,17 @@ function Show-SystemMonitor {
     
     # Auto-refresh timer
     $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval = 2000  # Refresh every 2 seconds
-    $timer.Add_Tick({ Refresh-Status })
+    $timer.Interval = 2000
+    $timer.Add_Tick({ 
+        # Check if form still exists before refreshing, to prevent errors on close
+        if ($form.IsDisposed) {
+            $timer.Stop()
+        } else {
+            Refresh-Status 
+        }
+    })
     $timer.Start()
     
-    # Manual refresh button
-    $refreshButton = New-Object System.Windows.Forms.Button
-    $refreshButton.Text = "Refresh Now"
-    $refreshButton.Size = New-Object System.Drawing.Size(100, 30)
-    $refreshButton.Location = New-Object System.Drawing.Point(260, ($form.Height - 70))
-    $refreshButton.BackColor = $COLOR_PANEL
-    $refreshButton.ForeColor = $COLOR_TEXT
-    $refreshButton.FlatStyle = "Flat"
-    $refreshButton.Add_Click({ Refresh-Status })
-    # $form.Controls.Add($refreshButton)
-
-    # Show the form
     $form.Add_FormClosed({ $timer.Stop() })
     $form.ShowDialog() | Out-Null
 }
@@ -440,20 +421,3 @@ function Show-SystemMonitor {
 # Main execution
 Write-Host "Starting Flight Simulator System Monitor..."
 Show-SystemMonitor
-
-# CONFIGURATION HELP:
-# 
-# To find your specific USB device names and VID/PID, run this command:
-# .\usb_detect.ps1
-# When you connect a device, it will show its VID and PID.
-#
-# To find running processes, use:
-# Get-Process | Where-Object { $_.ProcessName -like "*flight*" -or $_.ProcessName -like "*sim*" } | Select ProcessName
-#
-# Update the $USB_DEVICES hashtable with your device names and VID/PID:
-# "Display Name" = "VID_XXXX&PID_YYYY" (or "" if you only want to search by name)
-#
-# Update the $REQUIRED_PROCESSES hashtable with the correct paths for your system:
-# - For regular executables: "ProcessName" = "C:\Full\Path\To\Program.exe"
-# - For command line scripts: "cmd:ScriptName" = "cmd /c C:\Path\To\Script.bat"
-# - For PowerShell scripts: "powershell:ScriptName" = "powershell -File C:\Path\To\Script.ps1"

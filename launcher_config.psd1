@@ -28,7 +28,4 @@
         "PlatformManager" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Platform Manager"
     }
 
-    # Launch Process Configuration
-    # Main application to launch
-    LAUNCH_PROCESS = "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"
 }
