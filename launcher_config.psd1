@@ -30,5 +30,5 @@
 
     # Launch Process Configuration
     # Main application to launch
-    LAUNCH_PROCESS = "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"
+   LAUNCH_PROCESS = """C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"""
 }

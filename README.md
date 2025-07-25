@@ -2,7 +2,7 @@
 
 A PowerShell script with a graphical user interface (GUI) that checks the status of your flight simulator setup before launch. It verifies that your USB devices are connected and all required background applications are running, ensuring you're ready for flight\! ✈️
 
-<img width="908" height="859" alt="Image" src="https://github.com/user-attachments/assets/f10c3fbc-a119-4e6e-bae5-5e2c28ee7edc" />
+<img width="454" height="685" alt="Image" src="https://github.com/user-attachments/assets/5b6a745f-2d78-4ebf-b569-43d8b6728c89" />
 
 -----
 
@@ -12,7 +12,8 @@ A PowerShell script with a graphical user interface (GUI) that checks the status
   * **USB Device Check**: Verifies that your specific USB devices, Joysticks or HOTAS is connected and recognized by Windows.
   * **Application Check**: Monitors a configurable list of essential applications (e.g., SimHaptic, VoiceAttack, MOZA Pit House) to ensure they are running.
   * **One-Click Start**: Start any missing application directly from the monitor's GUI.
-  * **Auto-Launch**: Once all systems are green, the script automatically launches your main flight simulator (e.g., Falcon BMS, DCS, MSFS) and closes the monitor.
+  * **Auto-Launch**: Once all systems are green, the script automatically launches your game or flight simulator (e.g., Falcon BMS, DCS, MSFS) and closes the monitor.
+  * **Manual Launch**: Bypass the checks and launch your game or flight simulator (e.g., Falcon BMS, DCS, MSFS)
   * **Customizable**: Easily configure device names, application paths, and even the colors of the GUI.
 
 -----
@@ -52,22 +53,22 @@ A PowerShell script with a graphical user interface (GUI) that checks the status
         }
         ```
 
-      * **Flight Simulator Launcher**: modify LAUNCH_PROCESS to the path of your main simulator's executable.
-
 -----
 
 ## Usage
 
-1.  **Open PowerShell**: Right-click your desktop or a folder and select "Open in Terminal" or "Open PowerShell window here".
+<img width="304" height="402" alt="Image" src="https://github.com/user-attachments/assets/9f212ea6-e32b-4605-8eea-aece62463491" />
+    
+1.  **Add To Shortcut**: Right-click on the shortcut and add the full path to launcher.bat to the beginning of the target.
 
-2.  **Run the Script**: Navigate to the directory where you saved the script and run it.
+2.  or **Manually Run the Script**: Navigate to the directory where you saved the script and run it.
 
     ```powershell
     # You might need to change the execution policy the first time
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
 
     # Run the script
-    .\launcher
+    .\launcher.bat "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"
     ```
 
 The System Monitor window will appear. It will automatically refresh every few seconds. Once all items are **GREEN**, it will launch your simulator and exit.
