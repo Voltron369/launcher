@@ -26,6 +26,7 @@
         "OpenTabletDriver.Daemon" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\OpenTabletDriver.UX.Wpf.lnk"
         "OpenKneeboardApp" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\OpenKneeboard.lnk"
         "PlatformManager" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Platform Manager"
+        "voicemeeter_x64" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\voicemeeter_x64.lnk"
     }
 
 }
