@@ -55,7 +55,9 @@ A PowerShell script with a graphical user interface (GUI) that checks the status
         }
         ```
     
-3.  **Add To Shortcut**: Right-click on the shortcut and add the full path to launcher.bat to the beginning of the target.
+3.  **Install AudioDeviceCmdlets**  If you want to set the audio device on launch, update `DEFAULT_AUDIO_DEVICE` in the `.psd1` file.  Install AudioDeviceCmdlets in PowerShell: `Install-Module -Name AudioDeviceCmdlets -Force -Scope CurrentUser`
+
+4.  **Add To Shortcut**: Right-click on the shortcut and add the full path to launcher.bat to the beginning of the target.
 
 <p align="center">
 <img width="304" height="402" alt="Image" src="https://github.com/user-attachments/assets/9f212ea6-e32b-4605-8eea-aece62463491" />

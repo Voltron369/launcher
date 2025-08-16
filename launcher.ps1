@@ -26,6 +26,7 @@ $config = Import-PowerShellDataFile -Path $configPath
 # Extract configuration variables
 $USB_DEVICES = $config.USB_DEVICES
 $REQUIRED_PROCESSES = $config.REQUIRED_PROCESSES
+$DEFAULT_AUDIO_DEVICE = $config.DEFAULT_AUDIO_DEVICE
 
 # Fix Unicode display in PowerShell
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -41,6 +42,37 @@ $COLOR_BLUE = [System.Drawing.Color]::FromArgb(33, 150, 243)
 $COLOR_BACKGROUND = [System.Drawing.Color]::FromArgb(37, 37, 38)
 $COLOR_TEXT = [System.Drawing.Color]::White
 $COLOR_PANEL = [System.Drawing.Color]::FromArgb(45, 45, 48)
+
+# Use AudioDeviceCmdlets module if available
+function Set-DefaultAudioDevice {
+    param([string]$DeviceName)
+
+    if (-not $DeviceName) {
+        return $true
+    }
+    
+    if (Get-Module -ListAvailable -Name AudioDeviceCmdlets) {
+        Import-Module AudioDeviceCmdlets
+        $devices = Get-AudioDevice -List | Where-Object { $_.Name -like "*$DeviceName*" }
+        
+        if ($devices.Count -eq 0) {
+            Write-Error "No audio device found matching name: $DeviceName"
+            return $false
+        }
+        
+        if ($devices.Count -gt 1) {
+            Write-Warning "Multiple devices found matching '$DeviceName'. Using first match: $($devices[0].Name)"
+        }
+        
+        Set-AudioDevice -InputObject $devices[0]
+        Write-Host "Set default audio device to: $($devices[0].Name)" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Warning "AudioDeviceCmdlets module not found. run: Install-Module -Name AudioDeviceCmdlets -Force -Scope CurrentUser"
+    }
+    
+    return $false
+}
 
 function Check-USBDevice {
     param([string]$DeviceName, [string]$VidPid = "", $usbDevices, $pnpDevices)
@@ -266,7 +298,8 @@ function Show-SystemMonitor {
         param(
             [string]$commandToRun,
             [string[]]$arguments
- )
+        )
+        Set-DefaultAudioDevice -DeviceName $DEFAULT_AUDIO_DEVICE
         
         if ([string]::IsNullOrWhiteSpace($commandToRun)) { return }
 

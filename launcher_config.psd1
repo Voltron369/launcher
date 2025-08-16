@@ -29,4 +29,7 @@
         "voicemeeter_x64" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\voicemeeter_x64.lnk"
     }
 
+    # Optional: audio device to set as default when launching applications
+    DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
+
 }
