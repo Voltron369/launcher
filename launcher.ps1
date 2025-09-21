@@ -27,6 +27,12 @@ $config = Import-PowerShellDataFile -Path $configPath
 $USB_DEVICES = $config.USB_DEVICES
 $REQUIRED_PROCESSES = $config.REQUIRED_PROCESSES
 $DEFAULT_AUDIO_DEVICE = $config.DEFAULT_AUDIO_DEVICE
+$DEFAULT_OPENXR_RUNTIME = $config.DEFAULT_OPENXR_RUNTIME
+
+$Runtimes = @{
+    # "oculus" = "C:\Program Files\Oculus\Support\oculus-runtime\oculus_openxr_64.json"
+    "pimax" = "C:\Program Files\Pimax\Runtime\PiOpenXR_64.json"
+}
 
 # Fix Unicode display in PowerShell
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -300,7 +306,16 @@ function Show-SystemMonitor {
             [string[]]$arguments
         )
         Set-DefaultAudioDevice -DeviceName $DEFAULT_AUDIO_DEVICE
-        
+
+        if ($DEFAULT_OPENXR_RUNTIME) {
+            $runtimePath = $Runtimes[$DEFAULT_OPENXR_RUNTIME]
+            if (-not $runtimePath -or -not (Test-Path $runtimePath)) {
+                Write-Warning "Runtime path not found for $RuntimeName`: $runtimePath"
+                return $false
+            }
+            $env:XR_RUNTIME_JSON = $runtimePath
+        }
+
         if ([string]::IsNullOrWhiteSpace($commandToRun)) { return }
 
         $timer.Stop()

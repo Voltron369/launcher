@@ -31,5 +31,6 @@
 
     # Optional: audio device to set as default when launching applications
     DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
+    DEFAULT_OPENXR_RUNTIME = "pimax"  # Options: "pimax", "oculus", or "" for none
 
 }
