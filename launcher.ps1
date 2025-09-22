@@ -28,6 +28,7 @@ $USB_DEVICES = $config.USB_DEVICES
 $REQUIRED_PROCESSES = $config.REQUIRED_PROCESSES
 $DEFAULT_AUDIO_DEVICE = $config.DEFAULT_AUDIO_DEVICE
 $DEFAULT_OPENXR_RUNTIME = $config.DEFAULT_OPENXR_RUNTIME
+$CLOSE_APPS_ON_STARTUP = $config.CLOSE_APPS_ON_STARTUP
 
 $Runtimes = @{
     # "oculus" = "C:\Program Files\Oculus\Support\oculus-runtime\oculus_openxr_64.json"
@@ -468,4 +469,29 @@ function Show-SystemMonitor {
 
 # Main execution
 Write-Host "Starting Flight Simulator System Monitor..."
+
+# Shut down specified applications in parallel
+$jobs = foreach ($AppName in $CLOSE_APPS_ON_STARTUP) {
+    Start-Job -ScriptBlock {
+        # We must pass the app name in as an argument
+        param($name)
+
+        $process = Get-Process $name -ErrorAction SilentlyContinue
+        if ($process) {
+            Stop-Process -Name $name -Force
+            return "Successfully closed '$name'."
+        } else {
+            return "'$name' is not currently running."
+        }
+    } -ArgumentList $AppName
+}
+
+# Wait for all jobs to complete and then display their output
+$jobs | Wait-Job | Receive-Job
+
+Write-Host "cleanup complete." -ForegroundColor Cyan
+
+# Clean up the completed jobs
+$jobs | Remove-Job
+
 Show-SystemMonitor

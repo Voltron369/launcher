@@ -29,6 +29,11 @@
         "voicemeeter_x64" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\voicemeeter_x64.lnk"
     }
 
+    CLOSE_APPS_ON_STARTUP = @(
+        "SimHaptic"
+        "Steam"
+    )
+
     # Optional: audio device to set as default when launching applications
     DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
     DEFAULT_OPENXR_RUNTIME = "pimax"  # Options: "pimax", "oculus", or "" for none
