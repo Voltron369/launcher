@@ -35,7 +35,7 @@ if ([string]::IsNullOrWhiteSpace($ExecutablePath)) {
 }
 
 $Runtimes = @{
-    # "oculus" = "C:\Program Files\Oculus\Support\oculus-runtime\oculus_openxr_64.json"
+    "oculus" = "C:\Program Files\Oculus\Support\oculus-runtime\oculus_openxr_64.json"
     "pimax" = "C:\Program Files\Pimax\Runtime\PiOpenXR_64.json"
 }
 
@@ -480,8 +480,12 @@ $jobs = foreach ($AppName in $CLOSE_APPS_ON_STARTUP) {
 
         $process = Get-Process $name -ErrorAction SilentlyContinue
         if ($process) {
-            Stop-Process -Name $name -Force
-            return "Successfully closed '$name'."
+            if ($name -ieq "PimaxClient") {
+                $process.CloseMainWindow() | Out-Null
+                Start-Sleep -Seconds 5
+            } else {
+                Stop-Process -Name $name -Force
+            }
         } else {
             return "'$name' is not currently running."
         }
