@@ -29,6 +29,10 @@ $REQUIRED_PROCESSES = $config.REQUIRED_PROCESSES
 $DEFAULT_AUDIO_DEVICE = $config.DEFAULT_AUDIO_DEVICE
 $DEFAULT_OPENXR_RUNTIME = $config.DEFAULT_OPENXR_RUNTIME
 $CLOSE_APPS_ON_STARTUP = $config.CLOSE_APPS_ON_STARTUP
+if ([string]::IsNullOrWhiteSpace($ExecutablePath)) {
+    $ExecutablePath = $config.EXECUTABLE_PATH
+    $Arguments = $config.ARGUMENTS
+}
 
 $Runtimes = @{
     # "oculus" = "C:\Program Files\Oculus\Support\oculus-runtime\oculus_openxr_64.json"
@@ -322,8 +326,6 @@ function Show-SystemMonitor {
         $timer.Stop()
         try {
             $executable = $commandToRun
-
-
             
             Write-Host "Minimizing windows and launching..."
             Write-Host "Executable: $executable"

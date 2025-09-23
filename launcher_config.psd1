@@ -37,5 +37,5 @@
     # Optional: audio device to set as default when launching applications
     DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
     DEFAULT_OPENXR_RUNTIME = "pimax"  # Options: "pimax", "oculus", or "" for none
-
+    #EXECUTABLE_PATH = "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"
 }
