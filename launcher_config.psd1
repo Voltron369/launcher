@@ -30,8 +30,8 @@
     }
 
     CLOSE_APPS_ON_STARTUP = @(
-        "SimHaptic"
         "Steam"
+        "bk-connect"
     )
 
     # Optional: audio device to set as default when launching applications
