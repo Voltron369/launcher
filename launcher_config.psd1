@@ -4,13 +4,14 @@
     USB_DEVICES = @{
         "Moza AB9 Joystick" = "VID_346E&PID_1000"
         "Tablet" = "VID_256C&PID_0064"
-        "Pimax VR Headset" = "VID_04D8&PID_E7EB"
+        "Pimax VR Headset" = "VID_34A4&PID_0018" # "VID_04D8&PID_E7EB"
         "Winwing PTO 2" = "VID_4098&PID_BF05"
         "WinWing Orion 2 Throttle" = "VID_4098&PID_BE62"
         "HS-2100" = ""  # has same VID/PID as QS-BT1 so use name.
         "QS-BT1" = ""
         "Thrustmaster Rudder" = "VID_044F&PID_B679"
         "Buttkicker Pro" = "VID_33A1&PID_52DA"
+        "Total Control Ejection Handle" = "VID_04D8&PID_E7EB"
     }
 
     # Required Processes Configuration
@@ -26,16 +27,17 @@
         "OpenTabletDriver.Daemon" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\OpenTabletDriver.UX.Wpf.lnk"
         "OpenKneeboardApp" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\OpenKneeboard.lnk"
         "PlatformManager" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Platform Manager"
-        "voicemeeter_x64" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\voicemeeter_x64.lnk"
+        # "voicemeeter_x64" = "C:\Users\gdeca\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\voicemeeter_x64.lnk"
     }
 
     CLOSE_APPS_ON_STARTUP = @(
-        "Steam"
+        # "Steam"
         "bk-connect"
     )
 
     # Optional: audio device to set as default when launching applications
-    DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
+    # DEFAULT_AUDIO_DEVICE = "Voicemeeter Input"
+    # DEFAULT_AUDIO_DEVICE = "Pimax"
     DEFAULT_OPENXR_RUNTIME = "pimax"  # Options: "pimax", "oculus", or "" for none
     #EXECUTABLE_PATH = "C:\Falcon BMS 4.38\Launcher\FalconBMS_Alternative_Launcher.exe"
 }

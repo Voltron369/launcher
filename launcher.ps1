@@ -308,6 +308,7 @@ function Show-SystemMonitor {
     function Invoke-LaunchAndClose {
         param(
             [string]$commandToRun,
+            [Parameter(ValueFromRemainingArguments=$true)]
             [string[]]$arguments
         )
         Set-DefaultAudioDevice -DeviceName $DEFAULT_AUDIO_DEVICE
